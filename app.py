@@ -6,5 +6,5 @@ server = app.server
 
 app.layout = html.Div("Hello Dash")
 
-if __name__ == "__main__":
-        app.run(debug=True)
+if __name__ == "__main__": 
+    app.run(debug=True)
