@@ -1,5 +1,5 @@
 
-m dash import Dash, html
+dash import Dash, html
 
 app = Dash(__name__)
 server = app.server
