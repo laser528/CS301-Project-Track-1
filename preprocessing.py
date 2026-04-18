@@ -54,7 +54,8 @@ class Dataset:
         self.r2Score = r2Score
         self.RMSE = RMSE
 
-    
-data = Dataset()
-print("R2 Score: ", data.r2Score)
-print("Root Mean Squared Error: ", data.RMSE)
+
+if __name__ == "__main__":
+    data = Dataset()
+    print("R2 Score: ", data.r2Score)
+    print("Root Mean Squared Error: ", data.RMSE)
