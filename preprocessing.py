@@ -1,4 +1,6 @@
-!pip install ucimlrepo
+#!pip install ucimlrepo                                         <-- Use in Google Colab
+#python -m pip install ucimlrepo                                <-- Use in terminal
+#python -m pip install ucimlrepo scikit-learn pandas numpy      <-- Use in terminal
 
 import pandas as pd
 import numpy as np
