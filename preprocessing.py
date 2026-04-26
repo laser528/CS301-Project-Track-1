@@ -43,6 +43,12 @@ class Dataset:
 
         from sklearn.metrics import root_mean_squared_error
         RMSE = root_mean_squared_error(y_test, y_predicted)
+
+        together = X.copy()
+        together['percent_change_next_weeks_price'] = y
+
+        numberfig = px.scatter(together, x = X.select_dtypes(include='number').columns,y='percent_change_next_weeks_price')
+        nonfig = px.scatter(together, x = X.select_dtypes(exclude='number').columns,y='percent_change_next_weeks_price')
         
         self.X = X
         self.y = y
@@ -53,9 +59,13 @@ class Dataset:
         self.model = model
         self.r2Score = r2Score
         self.RMSE = RMSE
+        self.numberfig = numberfig
+        self.nonfig = nonfig
 
 
 if __name__ == "__main__":
     data = Dataset()
     print("R2 Score: ", data.r2Score)
     print("Root Mean Squared Error: ", data.RMSE)
+    data.numberfig.show()
+    data.nonfig.show()
