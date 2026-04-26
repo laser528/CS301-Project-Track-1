@@ -1,0 +1,32 @@
+# Python virtual environments
+n virtual environments
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Installed/package build files
+build/
+dist/
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Installed/package build files
+build/
+dist/
+*.egg-info/
