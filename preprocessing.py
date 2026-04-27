@@ -10,13 +10,18 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 
 class Dataset:
-    def __init__(self):
+    def __init__(self, csvFile = None):
         # fetch dataset
-        dow_jones_index = fetch_ucirepo(id=312)
-
-        # data (as pandas dataframes)
-        X = dow_jones_index.data.features.copy()
-        y = dow_jones_index.data.targets.copy()
+        if csvFile == None:
+            dow_jones_index = fetch_ucirepo(id=312)
+            # data (as pandas dataframes)
+            X = dow_jones_index.data.features.copy()
+            y = dow_jones_index.data.targets.copy()
+        else:
+            df = csv_file.copy()
+            y = df["percent_change_next_weeks_price"]
+            X = df.drop(columns=["percent_change_next_weeks_price"])
+        
 
         #Format dollar amounts to floats
         X['open'] = X['open'].str.replace('$', '', regex=False).astype(float)
