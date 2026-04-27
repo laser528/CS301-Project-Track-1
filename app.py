@@ -4,6 +4,7 @@ import pandas as pd
 import base64
 import io
 from preprocessing import Dataset
+import plotly.express as px
 
 # Default Data
 defaultDataset = Dataset()
@@ -57,7 +58,29 @@ app.layout = html.Div(children=[
             inline=True
         ),
 
-        html.Div(id="target-output")
+        html.Div(id="target-output"),
+
+        html.Hr(),
+
+        html.H2("Feature Selection & Visualization"),
+
+        html.Label("Select feature columns:"),
+
+        dcc.Dropdown(
+            id="feature-dropdown",
+            options=[{"label": col, "value": col} for col in df.columns],
+            multi=True,
+            placeholder="Select feature columns",
+            style={"width": "60%", "color": "black"}
+        ),
+
+        dcc.Graph(id="correlation-graph"),
+
+        html.Hr(),
+
+        html.H2("Model Training Results"),
+
+        html.Div(id="model-results-output")
     ])
 
 @app.callback(
@@ -65,6 +88,7 @@ app.layout = html.Div(children=[
     Output("data-preview", "columns"),
     Output("data-preview", "data"),
     Output("target-dropdown", "options"),
+    Output("feature-dropdown", "options"),
     Input("upload-data", "contents"),
     Input("upload-data", "filename")
 )
@@ -89,8 +113,9 @@ def uploadData(contents, filename):
     columns = [{"name": col, "id": col} for col in app.df.columns]
     table_data = app.df.head(16).to_dict("records")
     target_options = [{"label": col, "value": col} for col in app.df.columns]
+    feature_options = [{"label": col, "value": col} for col in app.df.columns]
 
-    return message, columns, table_data, target_options
+    return message, columns, table_data, target_options, feature_options
 
 @app.callback(
     Output("target-output", "children"),
@@ -120,6 +145,44 @@ def targetSelection(target, problem_type):
                 for label, count in counts.items()
             ])
         ])
+    
+
+@app.callback(
+    Output("correlation-graph", "figure"),
+    Input("feature-dropdown", "value"),
+    Input("target-dropdown", "value")
+)
+def featureCorrelation(selected_features, target):
+    if not selected_features or target is None:
+        return px.bar(title="Select features and a target variable.")
+
+    correlations = []
+
+    for feature in selected_features:
+        if feature != target and pd.api.types.is_numeric_dtype(app.df[feature]):
+            corr = app.df[feature].corr(app.df[target])
+            correlations.append({"Feature": feature, "Correlation": corr})
+
+    if not correlations:
+        return px.bar(title="No numeric features selected for correlation.")
+
+    corr_df = pd.DataFrame(correlations).sort_values(by="Correlation", ascending=False)
+
+    fig = px.bar(corr_df, x="Feature", y="Correlation", title=f"Correlation with {target}")
+
+    return fig
+
+@app.callback(
+    Output("model-results-output", "children"),
+    Input("upload-data", "contents")
+)
+def showModelResults(contents):
+
+    return html.Div([
+        html.H4("Linear Regression Model Results"),
+        html.P(f"R² Score: {app.dataset.r2Score:.4f}"),
+        html.P(f"RMSE: {app.dataset.RMSE:.4f}")
+    ])
 
 if __name__ == "__main__": 
     app.run(debug=True)
