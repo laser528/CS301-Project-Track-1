@@ -1,5 +1,5 @@
 
-from dash import Dash, html, dcc, dash_table, Input, Output
+from dash import Dash, html, dcc, dash_table, Input, Output, State, ALL
 import pandas as pd
 import base64
 import io
@@ -80,7 +80,17 @@ app.layout = html.Div(children=[
 
         html.H2("Model Training Results"),
 
-        html.Div(id="model-results-output")
+        html.Div(id="model-results-output"),
+
+        html.Hr(),
+
+        html.H2("Prediction Interface"),
+
+        html.P("Enter values for the selected features to make a prediction."),
+
+        html.Div(id="prediction-inputs"),
+
+        html.Div(id="prediction-output")
     ])
 
 @app.callback(
@@ -99,8 +109,8 @@ def uploadData(contents, filename):
         contentType, contentString = contents.split(",")
         decoded = base64.b64decode(contentString)
 
-        uploaded_df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
-        app.dataset = Dataset(csv_file=uploaded_df)
+        uploadedDF = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+        app.dataset = Dataset(csv_file=uploadedDF)
 
     app.df = app.dataset.X.copy()
     app.df["percent_change_next_weeks_price"] = app.dataset.y
@@ -111,11 +121,11 @@ def uploadData(contents, filename):
         message = f"Uploaded file: {filename} | Rows: {app.df.shape[0]} | Columns: {app.df.shape[1]}"
 
     columns = [{"name": col, "id": col} for col in app.df.columns]
-    table_data = app.df.head(16).to_dict("records")
-    target_options = [{"label": col, "value": col} for col in app.df.columns]
-    feature_options = [{"label": col, "value": col} for col in app.df.columns]
+    tableData = app.df.head(16).to_dict("records")
+    targetOptions = [{"label": col, "value": col} for col in app.df.columns]
+    featureOptions = [{"label": col, "value": col} for col in app.df.columns]
 
-    return message, columns, table_data, target_options, feature_options
+    return message, columns, tableData, targetOptions, featureOptions
 
 @app.callback(
     Output("target-output", "children"),
@@ -166,9 +176,9 @@ def featureCorrelation(selected_features, target):
     if not correlations:
         return px.bar(title="No numeric features selected for correlation.")
 
-    corr_df = pd.DataFrame(correlations).sort_values(by="Correlation", ascending=False)
+    corrDF = pd.DataFrame(correlations).sort_values(by="Correlation", ascending=False)
 
-    fig = px.bar(corr_df, x="Feature", y="Correlation", title=f"Correlation with {target}")
+    fig = px.bar(corrDF, x="Feature", y="Correlation", title=f"Correlation with {target}")
 
     return fig
 
@@ -182,6 +192,62 @@ def showModelResults(contents):
         html.H4("Linear Regression Model Results"),
         html.P(f"R² Score: {app.dataset.r2Score:.4f}"),
         html.P(f"RMSE: {app.dataset.RMSE:.4f}")
+    ])
+
+@app.callback(
+    Output("prediction-inputs", "children"),
+    Input("feature-dropdown", "value")
+)
+def createPredictionInputs(selected_features):
+    if not selected_features:
+        return "Select features first."
+
+    inputs = []
+
+    for feature in selected_features:
+        if pd.api.types.is_numeric_dtype(app.df[feature]):
+            inputs.append(html.Div([
+                html.Label(feature),
+                dcc.Input(
+                    id={"type": "prediction-input", "index": feature},
+                    type="number",
+                    placeholder=f"Enter {feature}",
+                    style={"marginBottom": "10px", "display": "block"}
+                )
+            ]))
+
+    return inputs
+
+@app.callback(
+    Output("prediction-output", "children"),
+    Input({"type": "prediction-input", "index": ALL}, "value"),
+    State({"type": "prediction-input", "index": ALL}, "id")
+)
+def makePrediction(values, ids):
+    if not values or not ids:
+        return ""
+
+    input_row = app.dataset.X.mean(numeric_only=True).to_dict()
+
+    for value, input_id in zip(values, ids):
+        feature_name = input_id["index"]
+
+        if value is None:
+            value = 0
+
+        input_row[feature_name] = value
+
+    predictionDF = pd.DataFrame([input_row])
+    predictionDF = predictionDF.reindex(columns=app.dataset.X.columns, fill_value=0)
+
+    prediction = app.dataset.model.predict(predictionDF)[0]
+
+    if hasattr(prediction, "__len__"):
+        prediction = prediction[0]
+
+    return html.Div([
+        html.H4("Prediction Result"),
+        html.P(f"Predicted % change next week: {prediction:.2f}%")
     ])
 
 if __name__ == "__main__": 
