@@ -8,6 +8,10 @@ from ucimlrepo import fetch_ucirepo
 import plotly.express as px
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from modelselection import BestModel
+from sklearn.feature_selection import SelectKBest, f_regression
+from sklearn.metrics import r2_score
+from sklearn.metrics import root_mean_squared_error
 
 class Dataset:
     def __init__(self, csvFile = None):
@@ -30,31 +34,38 @@ class Dataset:
         X['close'] = X['close'].str.replace('$', '', regex=False).astype(float)
         X['next_weeks_open'] = X['next_weeks_open'].str.replace('$', '', regex=False).astype(float)
         X['next_weeks_close'] = X['next_weeks_close'].str.replace('$', '', regex=False).astype(float)
+        X = X.fillna(X.mode().iloc[0]) #Fill in missing values
 
-        #Fill in missing values
-        X = X.fillna(X.mode().iloc[0])
+        X = pd.get_dummies(X,columns=X.select_dtypes(exclude='number').columns,drop_first=True) #One-hot encoding for non-numeric
 
-        X = pd.get_dummies(X,columns =X.select_dtypes(exclude='number').columns,drop_first=True) #One-hot encoding for non-numeric columns
-
+        #Feature selection
+        selector = SelectKBest(f_regression, k=int(X.shape[1]/2))
+        selector.fit_transform(X, y)
+        selected_columns = X.columns[selector.get_support(indices=True)]
+        X = X[selected_columns]
+        
         X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2, random_state=42)
-
+        
         model = LinearRegression()
         model.fit(X_train, y_train)
 
         y_predicted = model.predict(X_test)
 
-        from sklearn.metrics import r2_score
+        #Evaluate
         r2Score = r2_score(y_test, y_predicted)
-
-        from sklearn.metrics import root_mean_squared_error
         RMSE = root_mean_squared_error(y_test, y_predicted)
+        
+        #Pick the best model
+        best = BestModel(X_train, X_test, y_train, y_test)
+        if not best.bestModel(r2Score, RMSE) == None:
+            model, r2Score, RMSE = best.bestModel(r2Score, RMSE)
 
+        #Display relationship between predictor and target variables
         together = X.copy()
         together['percent_change_next_weeks_price'] = y
-
         numberfig = px.scatter(together, x = X.select_dtypes(include='number').columns,y='percent_change_next_weeks_price')
         nonfig = px.scatter(together, x = X.select_dtypes(exclude='number').columns,y='percent_change_next_weeks_price')
-        
+
         self.X = X
         self.y = y
         self.X_train = X_train
@@ -66,7 +77,6 @@ class Dataset:
         self.RMSE = RMSE
         self.numberfig = numberfig
         self.nonfig = nonfig
-
 
 if __name__ == "__main__":
     data = Dataset()
