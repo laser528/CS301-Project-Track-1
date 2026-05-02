@@ -18,7 +18,7 @@ class Dataset:
             X = dow_jones_index.data.features.copy()
             y = dow_jones_index.data.targets.copy()
         else:
-            df = csv_file.copy()
+            df = csvFile.copy()
             y = df["percent_change_next_weeks_price"]
             X = df.drop(columns=["percent_change_next_weeks_price"])
         
