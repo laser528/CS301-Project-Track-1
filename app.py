@@ -135,29 +135,16 @@ def uploadData(contents, filename):
     Output("target-output", "children"),
     Input("target-dropdown", "value")
 )
-
-def targetSelection(target, problem_type):
+def targetSelection(target):
     if target is None:
         return "Select a target variable."
 
-    if problem_type == "regression":
-        average = app.df[target].mean()
+    average = app.df[target].mean()
 
-        return html.Div([
-            html.H4("Regression Target Summary"),
-            html.P(f"Average value of {target}: {average:.4f}")
-        ])
-
-    else:
-        counts = app.df[target].value_counts()
-
-        return html.Div([
-            html.H4("Classification Target Summary"),
-            html.Ul([
-                html.Li(f"{label}: {count}")
-                for label, count in counts.items()
-            ])
-        ])
+    return html.Div([
+        html.H4("Regression Target Summary"),
+        html.P(f"Average value of {target}: {average:.4f}")
+    ])
     
 
 @app.callback(
