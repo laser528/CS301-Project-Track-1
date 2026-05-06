@@ -56,7 +56,7 @@ class BestModel:
         ])
 
         param_grid = {
-            'poly__degree': [2, 3],
+            'poly__degree': [2, 3], #Force higher degree polynomial to represent complex data with the absense of 1 (linear regression)
             'poly__include_bias': [True, False]
         }
 
