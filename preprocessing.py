@@ -15,10 +15,10 @@ from sklearn.metrics import root_mean_squared_error
 
 class Dataset:
     def __init__(self, csvFile = None, targetColumn=None):
-        # fetch dataset
         if csvFile is None:
             self.TargetColumn = "percent_change_next_weeks_price"
 
+            # fetch dataset
             dow_jones_index = fetch_ucirepo(id=312)
             X = dow_jones_index.data.features.copy()
             y = dow_jones_index.data.targets.copy()
@@ -33,24 +33,12 @@ class Dataset:
             y = df[self.TargetColumn]
             X = df.drop(columns=[self.TargetColumn])
         
-        self.raw_df = pd.concat([X.copy(), pd.Series(np.ravel(y), name=self.TargetColumn)], axis=1)
+        raw_df = pd.concat([X.copy(), pd.Series(np.ravel(y), name=self.TargetColumn)], axis=1)
+        
         #Format dollar amounts to floats
-        # X['open'] = X['open'].str.replace('$', '', regex=False).astype(float)
-        # X['high'] = X['high'].str.replace('$', '', regex=False).astype(float)
-        # X['low'] = X['low'].str.replace('$', '', regex=False).astype(float)
-        # X['close'] = X['close'].str.replace('$', '', regex=False).astype(float)
-        # X['next_weeks_open'] = X['next_weeks_open'].str.replace('$', '', regex=False).astype(float)
-        # X['next_weeks_close'] = X['next_weeks_close'].str.replace('$', '', regex=False).astype(float)
-
         for col in X.columns:
             try:
-                X[col] = (
-                    X[col]
-                    .astype(str)
-                    .str.replace("$", "", regex=False)
-                    .str.replace(",", "", regex=False)
-                    .astype(float)
-                )
+                X[col] = (X[col].astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False).astype(float))
             except:
                 pass
 
@@ -62,18 +50,14 @@ class Dataset:
 
         # Feature selection
         k = max(1, int(X.shape[1] / 2))
-
         selector = SelectKBest(f_regression, k=k)
         selector.fit_transform(X, y)
-
         selected_columns = X.columns[selector.get_support(indices=True)]
         X = X[selected_columns]
-
         self.feature_columns = X.columns
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
+        
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         model = LinearRegression()
         model.fit(X_train, y_train)
@@ -84,11 +68,11 @@ class Dataset:
         r2Score = r2_score(y_test, y_predicted)
         RMSE = root_mean_squared_error(y_test, y_predicted)
 
-        # Pick the best model
+        # Pick the best model with the current dataset (Linear Regression, Polynomial Regression, Decision Tree Regression)
         best = BestModel(X_train, X_test, y_train, y_test)
         best_model = best.bestModel(r2Score, RMSE)
 
-        if best_model is not None:
+        if best_model is not None: #Unpack the new model if Linear Regression isn't the best
             model, r2Score, RMSE = best_model
 
         #Display relationship between predictor and target variables
@@ -97,6 +81,7 @@ class Dataset:
         numberfig = px.scatter(together, x=X.select_dtypes(include='number').columns, y=self.TargetColumn)
         nonfig = px.scatter(together, x=X.select_dtypes(exclude='number').columns, y=self.TargetColumn)
 
+        #Make all variables accessible to other files
         self.X = X
         self.y = y
         self.X_train = X_train
@@ -108,6 +93,7 @@ class Dataset:
         self.RMSE = RMSE
         self.numberfig = numberfig
         self.nonfig = nonfig
+        self.raw_df = raw_df
 
 if __name__ == "__main__":
     data = Dataset()
