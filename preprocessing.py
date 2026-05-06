@@ -33,7 +33,7 @@ class Dataset:
             y = df[self.TargetColumn]
             X = df.drop(columns=[self.TargetColumn])
         
-        
+        self.raw_df = pd.concat([X.copy(), pd.Series(np.ravel(y), name=self.TargetColumn)], axis=1)
         #Format dollar amounts to floats
         # X['open'] = X['open'].str.replace('$', '', regex=False).astype(float)
         # X['high'] = X['high'].str.replace('$', '', regex=False).astype(float)

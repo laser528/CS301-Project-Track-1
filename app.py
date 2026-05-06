@@ -16,7 +16,7 @@ server = app.server
 
 app.dataset = defaultDataset
 app.df = df
-app.raw_df = df
+app.raw_df = defaultDataset.raw_df
 
 
 app.layout = html.Div(children=[
@@ -66,6 +66,35 @@ app.layout = html.Div(children=[
 
         html.H2("Feature Selection & Visualization"),
 
+ 
+
+        html.Div([
+            html.Div([
+                html.H3("Correlation Strength"),
+                dcc.Graph(
+                    id="correlation-graph",
+                    style={"height": "450px"}
+                ),
+            ], style={"width": "49%", "display": "inline-block", "verticalAlign": "top"}),
+
+            html.Div([
+                html.H3("Average Target by Category"),
+                dcc.Graph(
+                    id="category-bar-chart",
+                    style={"height": "450px"}
+                ),
+                dcc.Dropdown(
+                    id="category-radio",
+                    placeholder="Select categorical variable",
+                    style={"width": "80%", "color": "black", "margin": "0 auto"}
+                ),
+            ], style={"width": "49%", "display": "inline-block", "verticalAlign": "top"}),
+        ]),
+
+        html.Hr(),
+
+        html.H2("Model Training Results"),
+
         html.Label("Select feature columns:"),
 
         dcc.Dropdown(
@@ -75,12 +104,6 @@ app.layout = html.Div(children=[
             placeholder="Select feature columns",
             style={"width": "60%", "color": "black"}
         ),
-
-        dcc.Graph(id="correlation-graph"),
-
-        html.Hr(),
-
-        html.H2("Model Training Results"),
 
         html.Div(id="model-results-output"),
 
@@ -101,20 +124,27 @@ app.layout = html.Div(children=[
     Output("data-preview", "data"),
     Output("target-dropdown", "options"),
     Output("feature-dropdown", "options"),
+    Output("category-radio", "options"),
     Input("upload-data", "contents"),
     Input("upload-data", "filename")
 )
 def uploadData(contents, filename):
     if contents is None:
         app.dataset = defaultDataset
-        app.raw_df = df
+        app.raw_df = defaultDataset.raw_df
     else:
         contentType, contentString = contents.split(",")
         decoded = base64.b64decode(contentString)
 
         uploadedDF = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
         app.raw_df = uploadedDF
-        app.dataset = Dataset(csvFile=uploadedDF)
+        numeric_cols_uploaded = uploadedDF.select_dtypes(include="number").columns
+
+        if len(numeric_cols_uploaded) == 0:
+            raise ValueError("Uploaded CSV needs at least one numeric column for regression.")
+
+        default_target = numeric_cols_uploaded[-1]
+        app.dataset = Dataset(csvFile=uploadedDF, targetColumn=default_target)
 
     app.df = app.dataset.X.copy()
     app.df[app.dataset.TargetColumn] = app.dataset.y
@@ -126,10 +156,43 @@ def uploadData(contents, filename):
 
     columns = [{"name": col, "id": col} for col in app.df.columns]
     tableData = app.df.head(16).to_dict("records")
-    targetOptions = [{"label": col, "value": col} for col in app.df.columns]
-    featureOptions = [{"label": col, "value": col} for col in app.df.columns]
+    
+    numeric_cols = app.df.select_dtypes(include="number").columns
+    categorical_cols = app.raw_df.select_dtypes(exclude="number").columns
 
-    return message, columns, tableData, targetOptions, featureOptions
+    targetOptions = [{"label": col, "value": col} for col in numeric_cols]
+    featureOptions = [{"label": col, "value": col} for col in numeric_cols if col != app.dataset.TargetColumn]
+    categoryOptions = [{"label": col, "value": col} for col in categorical_cols]
+
+    return message, columns, tableData, targetOptions, featureOptions, categoryOptions
+
+@app.callback(
+    Output("category-bar-chart", "figure"),
+    Input("category-radio", "value"),
+    Input("target-dropdown", "value")
+)
+def categoryBarChart(category, target):
+    if category is None or target is None:
+        return px.bar(title="Select a categorical variable and target.")
+
+    if category not in app.raw_df.columns:
+        return px.bar(title="Invalid category selected.")
+
+    tempDF = app.raw_df.copy()
+
+    if target not in tempDF.columns:
+        tempDF[target] = app.df[target]
+
+    grouped = tempDF.groupby(category)[target].mean().reset_index()
+
+    fig = px.bar(
+        grouped,
+        x=category,
+        y=target,
+        title=f"Average {target} by {category}"
+    )
+
+    return fig
 
 @app.callback(
     Output("target-output", "children"),
@@ -149,45 +212,37 @@ def targetSelection(target):
 
 @app.callback(
     Output("correlation-graph", "figure"),
-    Input("feature-dropdown", "value"),
     Input("target-dropdown", "value")
 )
-def featureCorrelation(selected_features, target):
-    if not selected_features or target is None:
-        return px.bar(title="Select features and a target variable.")
+def featureCorrelation(target):
+    if target is None:
+        return px.bar(title="Select a target variable.")
+
+    numeric_cols = app.df.select_dtypes(include="number").columns
 
     correlations = []
 
-    for feature in selected_features:
+    for feature in numeric_cols:
         if feature == target:
             continue
 
-        if pd.api.types.is_numeric_dtype(app.df[feature]):
-            corr = app.df[feature].corr(app.df[target])
-            correlations.append({
-                "Feature": feature,
-                "Correlation": corr,
-                "Type": "Valid"
-            })
-        else:
-            correlations.append({
-                "Feature": feature,
-                "Correlation": 0,
-                "Type": "Ignored"
-            })
+        corr = app.df[feature].corr(app.df[target])
 
-    corrDF = pd.DataFrame(correlations)
+        correlations.append({
+            "Feature": feature,
+            "Correlation": abs(corr)
+        })
+
+    corrDF = pd.DataFrame(correlations).sort_values(
+        by="Correlation",
+        ascending=False
+    )
 
     fig = px.bar(
         corrDF,
         x="Feature",
         y="Correlation",
-        color="Type",
-        title=f"Correlation with {target}",
-        color_discrete_map={
-            "Valid": "green",
-            "Ignored": "gray"
-        }
+        title=f"Correlation Strength of Numerical Variables with {target}"
     )
 
     return fig
@@ -257,34 +312,50 @@ def makePrediction(values, ids):
 
 @app.callback(
     Output("prediction-inputs", "children"),
-    Input("target-dropdown", "value")
+    Input("target-dropdown", "value"),
+    Input("feature-dropdown", "value")
 )
-def createPredictionInputs(target):
+def createPredictionInputs(target, selected_features):
     if target is None:
         return "Select a target variable first."
 
+    if not selected_features:
+        return "Select feature columns first."
+
     inputs = []
 
-    for feature in app.raw_df.columns:
-        if feature == target:
-            continue
-
-        if not pd.api.types.is_numeric_dtype(app.raw_df[feature]):
-            continue
-
+    for feature in selected_features:
         inputs.append(html.Div([
             html.Label(feature),
             dcc.Input(
                 id={"type": "prediction-input", "index": feature},
                 type="number",
-                value=app.raw_df[feature].mean(),
+                value=app.df[feature].mean(),
                 style={"marginBottom": "10px", "display": "block"}
             )
         ]))
 
     return inputs
+@app.callback(
+    Output("feature-dropdown", "options", allow_duplicate=True),
+    Input("target-dropdown", "value"),
+    prevent_initial_call=True
+)
+def updateFeatureOptions(target):
+    if target is None:
+        return []
+
+    numeric_cols = app.df.select_dtypes(include="number").columns
+
+    return [
+        {"label": col, "value": col}
+        for col in numeric_cols
+        if col != target
+    ]
+
+
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False)
     # app.run(debug=True)
