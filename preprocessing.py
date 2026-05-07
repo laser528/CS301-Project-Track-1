@@ -47,14 +47,15 @@ class Dataset:
 
         y = np.ravel(y)
 
-        # Feature selection
-        k = max(1, int(X.shape[1] / 2))
-        selector = SelectKBest(f_regression, k=k)
-        selector.fit_transform(X, y)
-        selected_columns = X.columns[selector.get_support(indices=True)]
-        X = X[selected_columns]
-        self.feature_columns = X.columns
+        # Feature selection does weird stuff to preditcition
+        # k = max(1, int(X.shape[1] / 2))
+        # selector = SelectKBest(f_regression, k=k)
+        # selector.fit_transform(X, y)
+        # selected_columns = X.columns[selector.get_support(indices=True)]
+        # X = X[selected_columns]
+        # self.feature_columns = X.columns
 
+        self.feature_columns = X.columns
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 

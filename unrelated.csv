@@ -1,0 +1,11 @@
+customer_id,age,city,income,subscription_type,months_active,churned
+1001,25,New York,55000,Basic,12,0
+1002,34,Los Angeles,72000,Premium,24,0
+1003,29,Chicago,48000,Basic,6,1
+1004,42,Houston,91000,Premium,36,0
+1005,31,Phoenix,60000,Standard,18,0
+1006,22,Philadelphia,39000,Basic,3,1
+1007,37,San Antonio,83000,Premium,30,0
+1008,28,San Diego,51000,Standard,10,1
+1009,45,Dallas,97000,Premium,40,0
+1010,33,San Jose,68000,Standard,20,0

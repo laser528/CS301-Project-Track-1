@@ -104,6 +104,19 @@ app.layout = html.Div(children=[
             placeholder="Select feature columns",
             style={"width": "60%", "color": "black"}
         ),
+        
+        html.Button(
+            "Train",
+            id="train-button",
+            n_clicks=0,
+            style={
+                "width": "150px",
+                "height": "45px",
+                "fontSize": "18px",
+                "marginTop": "10px",
+                "marginBottom": "10px"
+            }
+        ),
 
         html.Div(id="model-results-output"),
 
@@ -125,6 +138,9 @@ app.layout = html.Div(children=[
     Output("target-dropdown", "options"),
     Output("feature-dropdown", "options"),
     Output("category-radio", "options"),
+    Output("target-dropdown", "value"),
+    Output("feature-dropdown", "value"),
+    Output("category-radio", "value"),
     Input("upload-data", "contents"),
     Input("upload-data", "filename")
 )
@@ -164,7 +180,7 @@ def uploadData(contents, filename):
     featureOptions = [{"label": col, "value": col} for col in numeric_cols if col != app.dataset.TargetColumn]
     categoryOptions = [{"label": col, "value": col} for col in categorical_cols]
 
-    return message, columns, tableData, targetOptions, featureOptions, categoryOptions
+    return message, columns, tableData, targetOptions, featureOptions, categoryOptions, app.dataset.TargetColumn, [], None
 
 @app.callback(
     Output("category-bar-chart", "figure"),
@@ -249,18 +265,28 @@ def featureCorrelation(target):
 
 @app.callback(
     Output("model-results-output", "children"),
-    Input("target-dropdown", "value")
+    Input("train-button", "n_clicks"),
+    State("target-dropdown", "value"),
+    State("feature-dropdown", "value")
 )
-def showModelResults(target):
+def showModelResults(n_clicks, target, selected_features):
+    if n_clicks == 0:
+        return "Select a target, select features, and click Train."
+
     if target is None:
         return "Select a target variable to train the model."
 
+    if not selected_features:
+        return "Select at least one feature."
+
     try:
-        app.dataset = Dataset(csvFile=app.raw_df, targetColumn=target)
+        trainingDF = app.raw_df[selected_features + [target]].copy()
+        app.dataset = Dataset(csvFile=trainingDF, targetColumn=target)
 
         return html.Div([
             html.H4("Model Results"),
             html.P(f"Target: {target}"),
+            html.P(f"Features: {', '.join(selected_features)}"),
             html.P(f"R² Score: {app.dataset.r2Score:.4f}"),
             html.P(f"RMSE: {app.dataset.RMSE:.4f}")
         ])
@@ -323,6 +349,8 @@ def createPredictionInputs(target, selected_features):
         return "Select feature columns first."
 
     inputs = []
+
+    selected_features = sorted(selected_features, key=lambda feature: abs(app.df[feature].corr(app.df[target])), reverse=True)
 
     for feature in selected_features:
         inputs.append(html.Div([
