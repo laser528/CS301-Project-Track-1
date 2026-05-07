@@ -340,19 +340,27 @@ def makePrediction(values, ids):
 
 @app.callback(
     Output("prediction-inputs", "children"),
-    Input("target-dropdown", "value"),
-    Input("feature-dropdown", "value")
+    Input("train-button", "n_clicks"),
+    State("target-dropdown", "value"),
+    State("feature-dropdown", "value")
 )
-def createPredictionInputs(target, selected_features):
+def createPredictionInputs(n_clicks, target, selected_features):
+    if n_clicks == 0:
+        return "Click Train to create prediction inputs."
+
     if target is None:
         return "Select a target variable first."
 
     if not selected_features:
         return "Select feature columns first."
 
-    inputs = []
+    selected_features = sorted(
+        selected_features,
+        key=lambda feature: abs(app.df[feature].corr(app.df[target])),
+        reverse=True
+    )
 
-    selected_features = sorted(selected_features, key=lambda feature: abs(app.df[feature].corr(app.df[target])), reverse=True)
+    inputs = []
 
     for feature in selected_features:
         inputs.append(html.Div([
@@ -361,11 +369,13 @@ def createPredictionInputs(target, selected_features):
                 id={"type": "prediction-input", "index": feature},
                 type="number",
                 value=app.df[feature].mean(),
+                debounce=True,
                 style={"marginBottom": "10px", "display": "block"}
             )
         ]))
 
     return inputs
+
 @app.callback(
     Output("feature-dropdown", "options", allow_duplicate=True),
     Input("target-dropdown", "value"),
@@ -385,7 +395,7 @@ def updateFeatureOptions(target):
 
 
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=False)
-    # app.run(debug=True)
+    # import os
+    # port = int(os.environ.get("PORT", 8080))
+    # app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(debug=True)
