@@ -313,8 +313,10 @@ def makePrediction(values, ids):
     for value, input_id in zip(values, ids):
         feature_name = input_id["index"]
 
-        if value is not None:
-            input_row[feature_name] = value
+        if value is None or value == "":
+            input_row[feature_name] = app.dataset.X[feature_name].mean()
+        else:
+            input_row[feature_name] = float(value)
 
     predictionDF = pd.DataFrame([input_row])
     predictionDF = predictionDF.reindex(columns=app.dataset.X.columns, fill_value=0)
